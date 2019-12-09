@@ -1,0 +1,55 @@
+
+pipeline {
+    agent any
+    environment {
+        VRO_PASS = credentials('vro-pass')
+        VRA_PASS = credentials('vra-pass')
+        VRO_URL = 'https://vra.local'
+        VRO_USER = 'Administrator@vsphere.local'
+        //vRO Workflows ID
+        def WORKFLOW1 = 'XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX'
+        def WORKFLOW2 = 'XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX'
+        def WORKFLOW3 = 'XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX'
+    }
+    stages {
+        stage('Run Workflow') {
+            steps {
+                script {
+                    //No input params 
+                    runVroWorkflow("${VRO_URL}",  "${VRO_USER}", "${VRO_PASS}", "${WORKFLOW1}", "{}") 
+
+                    //one input param bgName:String 
+                    env.JASON = "{\"parameters\":[{\"value\":{\"string\": {\"value\": \"${env.BGName}\"}},\"type\": \"string\",\"name\": \"bgName\",\"scope\": \"local\"}]}"
+                    runVroWorkflow("${DST_VRO_URL}",  "${DST_VRO_USER}", "${DST_VRO_PASS}", "${SET_ENDPOINTS}", "${env.JASON}") 
+                }
+            }
+        }
+
+        stage('Run Workflow from file') {
+            steps {
+                script {
+                    env.PAYLOAD = readFile 'payload.json'
+                    writeFile file: 'ep.json', text: env.PAYLOAD
+                    runVroWorkflowFromFile("${DST_VRO_URL}",  "${DST_VRO_USER}", "${DST_VRO_PASS}", "${SET_ENDPOINTS}", "ep.json") 
+                }
+            }
+        }
+    }
+}
+
+
+
+def  runVroWorkflow(vroUrl, vroUser, vroPass, wfId, json) {
+    timeout(time: 10, unit: 'MINUTES') {
+        sh "chmod +x ./vroWFRun.sh"
+        sh "./vroWFRun.sh $vroUrl $vroUser $vroPass $wfId \'$json\'"
+    }
+}
+
+def  runVroWorkflowFromFile(vroUrl, vroUser, vroPass, wfId, fileName) {
+    timeout(time: 10, unit: 'MINUTES') {
+        sh "chmod +x ./vroWFRunFromFile.sh"
+        sh "./vroWFRunFromFile.sh $vroUrl $vroUser $vroPass $wfId $fileName"
+    }
+}
+
